@@ -10,8 +10,19 @@
   <div class="container">
     <header>
       <h1>Teacher Attendance & Workshop Registration</h1>
-      <p>Workflow 1 prototype: teacher registration, login, workshop signup, and confirmation.</p>
+      <p>Workflow 1 & 2: teacher registration/login, workshop signup, and admin attendance tracking.</p>
     </header>
+
+    <section id="role-selector" class="card">
+      <div class="tabs">
+        <button id="show-teacher-role" class="active">Teacher</button>
+        <button id="show-admin-role">Admin</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <p><a href="hello.html">Go to Hello World page</a></p>
+    </section>
 
     <section id="auth-section" class="card">
       <div class="tabs">
@@ -42,7 +53,16 @@
       </div>
     </section>
 
-    <section id="app-section" class="hidden">
+    <section id="admin-auth-section" class="card hidden">
+      <h2>Admin Login</h2>
+      <form id="admin-login-form">
+        <label>Admin Password <input name="password" type="password" required /></label>
+        <button type="submit">Login as Admin</button>
+      </form>
+      <div id="admin-login-message" class="message"></div>
+    </section>
+
+    <section id="teacher-app-section" class="hidden">
       <div class="toolbar">
         <div>
           <span id="welcome-text"></span>
@@ -66,6 +86,44 @@
       <div id="confirmation-card" class="card hidden">
         <h2>Registration Confirmation</h2>
         <div id="confirmation-details"></div>
+      </div>
+    </section>
+
+    <section id="admin-app-section" class="hidden">
+      <div class="toolbar">
+        <div>
+          <span id="admin-welcome-text"></span>
+        </div>
+        <button id="admin-logout-button">Logout</button>
+      </div>
+
+      <div class="card">
+        <h2>Mark Attendance</h2>
+        
+        <div style="margin-bottom: 20px;">
+          <label>Select Workshop Date & Time</label>
+          <select id="workshop-select" style="width: 100%; padding: 10px 12px; margin-top: 6px; border: 1px solid #cbd5e1; border-radius: 12px;">
+            <option value="">-- Choose a workshop --</option>
+          </select>
+        </div>
+
+        <div id="attendance-list" style="display: none;">
+          <h3>Registered Teachers</h3>
+          <div id="attendance-table-container"></div>
+          
+          <div style="margin-top: 20px;">
+            <button id="save-attendance-button" class="attendance-save-button">Save Attendance</button>
+          </div>
+        </div>
+
+        <div id="no-workshop-message" style="color: #475569; padding: 20px; text-align: center;">
+          Select a workshop above to mark attendance.
+        </div>
+      </div>
+
+      <div id="attendance-confirmation-card" class="card hidden">
+        <h2>Attendance Saved</h2>
+        <div id="attendance-confirmation-details"></div>
       </div>
     </section>
   </div>

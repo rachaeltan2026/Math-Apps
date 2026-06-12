@@ -30,6 +30,9 @@ const storage = {
   }
 };
 
+// Default admin password (in production, this should be properly secured)
+const ADMIN_PASSWORD = 'admin123';
+
 const defaultWorkshops = [
   {
     id: 'ws-1',
@@ -78,7 +81,6 @@ const defaultWorkshops = [
 ];
 
 const authSection = document.getElementById('auth-section');
-const appSection = document.getElementById('app-section');
 const registerBox = document.getElementById('register-box');
 const loginBox = document.getElementById('login-box');
 const showRegisterBtn = document.getElementById('show-register');
@@ -94,6 +96,25 @@ const registeredList = document.getElementById('registered-list');
 const logoutButton = document.getElementById('logout-button');
 const confirmationCard = document.getElementById('confirmation-card');
 const confirmationDetails = document.getElementById('confirmation-details');
+
+// New elements for Workflow 2: Admin Attendance
+const roleSelector = document.getElementById('role-selector');
+const showTeacherRoleBtn = document.getElementById('show-teacher-role');
+const showAdminRoleBtn = document.getElementById('show-admin-role');
+const adminAuthSection = document.getElementById('admin-auth-section');
+const adminLoginForm = document.getElementById('admin-login-form');
+const adminLoginMessage = document.getElementById('admin-login-message');
+const teacherAppSection = document.getElementById('teacher-app-section');
+const adminAppSection = document.getElementById('admin-app-section');
+const adminWelcomeText = document.getElementById('admin-welcome-text');
+const adminLogoutButton = document.getElementById('admin-logout-button');
+const workshopSelect = document.getElementById('workshop-select');
+const attendanceList = document.getElementById('attendance-list');
+const attendanceTableContainer = document.getElementById('attendance-table-container');
+const noWorkshopMessage = document.getElementById('no-workshop-message');
+const saveAttendanceButton = document.getElementById('save-attendance-button');
+const attendanceConfirmationCard = document.getElementById('attendance-confirmation-card');
+const attendanceConfirmationDetails = document.getElementById('attendance-confirmation-details');
 
 const currentUserKey = 'currentTeacherEmail';
 
@@ -124,6 +145,82 @@ function saveRegistrations(registrations) {
   storage.set('registrations', registrations);
 }
 
+function isSupabaseEnabled() {
+  return !!supabaseClient;
+}
+
+async function getSupabaseUserIdByEmail(email) {
+  if (!isSupabaseEnabled()) return null;
+
+  const { data, error } = await supabaseClient
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .single();
+
+  if (error) {
+    console.error('Supabase user lookup failed:', error);
+    return null;
+  }
+
+  return data?.id || null;
+}
+
+async function saveTeacherToSupabase(teacher) {
+  if (!isSupabaseEnabled()) return null;
+
+  const existingId = await getSupabaseUserIdByEmail(teacher.email);
+  if (existingId) {
+    return existingId;
+  }
+
+  const { data, error } = await supabaseClient
+    .from('users')
+    .insert({
+      name: teacher.name,
+      email: teacher.email,
+      phone: teacher.phone,
+      school: teacher.school,
+      grade_level: teacher.gradeLevel,
+      role: 'teacher'
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('Supabase save user failed:', error);
+    return null;
+  }
+
+  return data?.id || null;
+}
+
+async function saveRegistrationToSupabase(registration, teacher) {
+  if (!isSupabaseEnabled()) return null;
+
+  const userId = await getSupabaseUserIdByEmail(teacher.email);
+  if (!userId) {
+    console.warn('Supabase registration save skipped: user not found');
+    return null;
+  }
+
+  const { data, error } = await supabaseClient
+    .from('registrations')
+    .insert({
+      user_id: userId,
+      workshop_id: registration.workshopId,
+      status: registration.status,
+      confirmation_id: registration.confirmationId
+    });
+
+  if (error) {
+    console.error('Supabase save registration failed:', error);
+    return null;
+  }
+
+  return data;
+}
+
 function getCurrentTeacherEmail() {
   return localStorage.getItem(currentUserKey);
 }
@@ -134,6 +231,45 @@ function setCurrentTeacherEmail(email) {
 
 function clearCurrentTeacher() {
   localStorage.removeItem(currentUserKey);
+}
+
+function getCurrentTeacher() {
+  const email = getCurrentTeacherEmail();
+  if (!email) return null;
+  return getTeachers().find((teacher) => teacher.email === email) || null;
+}
+
+// Admin-related functions
+function setCurrentAdminEmail(email) {
+  localStorage.setItem('currentAdminEmail', email);
+}
+
+function getCurrentAdminEmail() {
+  return localStorage.getItem('currentAdminEmail');
+}
+
+function clearCurrentAdmin() {
+  localStorage.removeItem('currentAdminEmail');
+}
+
+function isAdminLoggedIn() {
+  return !!getCurrentAdminEmail();
+}
+
+function isTeacherLoggedIn() {
+  return !!getCurrentTeacherEmail();
+}
+
+function getAttendanceRecords() {
+  return storage.get('attendanceRecords') || [];
+}
+
+function saveAttendanceRecords(records) {
+  storage.set('attendanceRecords', records);
+}
+
+function findAttendanceRecord(registrationId) {
+  return getAttendanceRecords().find((record) => record.registrationId === registrationId);
 }
 
 function getCurrentTeacher() {
@@ -164,24 +300,40 @@ function getWaitlistCount(workshop) {
 }
 
 function updateDisplay() {
-  const currentTeacher = getCurrentTeacher();
-  if (!currentTeacher) {
+  const isAdmin = isAdminLoggedIn();
+  const isTeacher = isTeacherLoggedIn();
+
+  if (isAdmin) {
+    // Show admin interface
+    authSection.classList.add('hidden');
+    adminAuthSection.classList.add('hidden');
+    teacherAppSection.classList.add('hidden');
+    adminAppSection.classList.remove('hidden');
+    adminWelcomeText.textContent = 'Welcome, Admin';
+    populateWorkshopSelect();
+  } else if (isTeacher) {
+    // Show teacher interface
+    authSection.classList.add('hidden');
+    adminAuthSection.classList.add('hidden');
+    adminAppSection.classList.add('hidden');
+    teacherAppSection.classList.remove('hidden');
+    
+    const currentTeacher = getCurrentTeacher();
+    welcomeText.textContent = `Welcome, ${currentTeacher.name}`;
+
+    const confirmedCount = countConfirmedRegistrations(currentTeacher.email);
+    registrationCountText.textContent = `Registered for ${confirmedCount}/2 workshops`;
+
+    const workshops = loadWorkshops();
+    workshopsList.innerHTML = workshops.map((workshop) => renderWorkshopCard(workshop, currentTeacher)).join('');
+    registeredList.innerHTML = renderRegistrationList(currentTeacher.email);
+  } else {
+    // Show role selector and auth forms
     authSection.classList.remove('hidden');
-    appSection.classList.add('hidden');
-    return;
+    adminAuthSection.classList.add('hidden');
+    teacherAppSection.classList.add('hidden');
+    adminAppSection.classList.add('hidden');
   }
-
-  authSection.classList.add('hidden');
-  appSection.classList.remove('hidden');
-
-  welcomeText.textContent = `Welcome, ${currentTeacher.name}`;
-
-  const confirmedCount = countConfirmedRegistrations(currentTeacher.email);
-  registrationCountText.textContent = `Registered for ${confirmedCount}/2 workshops`;
-
-  const workshops = loadWorkshops();
-  workshopsList.innerHTML = workshops.map((workshop) => renderWorkshopCard(workshop, currentTeacher)).join('');
-  registeredList.innerHTML = renderRegistrationList(currentTeacher.email);
 }
 
 function renderWorkshopCard(workshop, teacher) {
@@ -201,7 +353,7 @@ function renderWorkshopCard(workshop, teacher) {
     actionButton = `<button class="unregister-button" onclick="handleUnregister('${workshop.id}')">Unregister</button>`;
   } else if (registration?.status === 'Waitlisted') {
     actionButton = `<span class="badge waitlisted">Waitlisted (${getWaitlistCount(workshop)} in queue)</span>`;
-  } else if (confirmedWorkshopsCount >= 2) {
+  } else if (registeredWorkshopsCount >= 2) {
     actionButton = `<button disabled>Limit reached</button>`;
   } else if (stillAvailable) {
     actionButton = `<button class="workshop-button" onclick="handleRegister('${workshop.id}')">Register</button>`;
@@ -287,9 +439,9 @@ function handleRegisterSubmit(event) {
   saveTeacher(teacher);
   setCurrentTeacherEmail(teacher.email);
   registerMessage.textContent = 'Registration successful. You are now logged in.';
+  updateDisplay();
   setTimeout(() => {
     registerMessage.textContent = '';
-    updateDisplay();
   }, 800);
   registerForm.reset();
 }
@@ -305,9 +457,9 @@ function handleLoginSubmit(event) {
 
   setCurrentTeacherEmail(email);
   loginMessage.textContent = 'Login successful.';
+  updateDisplay();
   setTimeout(() => {
     loginMessage.textContent = '';
-    updateDisplay();
   }, 600);
   loginForm.reset();
 }
@@ -347,6 +499,12 @@ function handleRegister(workshopId) {
   const registrations = getRegistrations();
   registrations.push(newRegistration);
   saveRegistrations(registrations);
+
+  if (isSupabaseEnabled()) {
+    saveTeacherToSupabase(teacher)
+      .then(() => saveRegistrationToSupabase(newRegistration, teacher))
+      .catch((err) => console.error('Supabase save sequence error:', err));
+  }
 
   showConfirmation(
     status === 'Registered' ? 'Registration Complete' : 'Added to Waitlist',
@@ -397,6 +555,171 @@ function handleLogout() {
   updateDisplay();
 }
 
+function handleAdminLogout() {
+  clearCurrentAdmin();
+  attendanceConfirmationCard.classList.add('hidden');
+  workshopSelect.value = '';
+  attendanceList.style.display = 'none';
+  noWorkshopMessage.style.display = 'block';
+  updateDisplay();
+}
+
+function handleAdminLoginSubmit(event) {
+  event.preventDefault();
+  const password = String(new FormData(adminLoginForm).get('password') || '').trim();
+  
+  if (password !== ADMIN_PASSWORD) {
+    adminLoginMessage.textContent = 'Incorrect password. Please try again.';
+    return;
+  }
+
+  setCurrentAdminEmail('admin@school.edu');
+  adminLoginMessage.textContent = 'Login successful.';
+  setTimeout(() => {
+    adminLoginMessage.textContent = '';
+    updateDisplay();
+  }, 600);
+  adminLoginForm.reset();
+}
+
+function showRoleTab(role) {
+  if (role === 'teacher') {
+    showTeacherRoleBtn.classList.add('active');
+    showAdminRoleBtn.classList.remove('active');
+    authSection.classList.remove('hidden');
+    adminAuthSection.classList.add('hidden');
+  } else {
+    showTeacherRoleBtn.classList.remove('active');
+    showAdminRoleBtn.classList.add('active');
+    authSection.classList.add('hidden');
+    adminAuthSection.classList.remove('hidden');
+  }
+}
+
+function populateWorkshopSelect() {
+  const workshops = loadWorkshops();
+  const options = workshops.map((ws) => {
+    return `<option value="${ws.id}">${ws.name} - ${ws.date} ${ws.time}</option>`;
+  }).join('');
+  workshopSelect.innerHTML = '<option value="">-- Choose a workshop --</option>' + options;
+}
+
+function handleWorkshopSelect(event) {
+  const workshopId = event.target.value;
+  if (!workshopId) {
+    attendanceList.style.display = 'none';
+    noWorkshopMessage.style.display = 'block';
+    return;
+  }
+
+  const workshops = loadWorkshops();
+  const workshop = workshops.find((ws) => ws.id === workshopId);
+  if (!workshop) return;
+
+  const registrations = getRegistrations().filter(
+    (reg) => reg.workshopId === workshopId && reg.status === 'Registered'
+  );
+
+  const attendanceRows = registrations.map((reg) => {
+    const teacher = getTeachers().find((t) => t.email === reg.teacherEmail);
+    const attendanceRecord = findAttendanceRecord(reg.id);
+    const isCheckedIn = attendanceRecord && attendanceRecord.checkInTime;
+
+    return `
+      <div class="attendance-row">
+        <div class="attendance-row-content">
+          <input 
+            type="checkbox" 
+            class="attendance-checkbox" 
+            data-registration-id="${reg.id}"
+            ${isCheckedIn ? 'checked' : ''}
+          />
+          <div class="teacher-info">
+            <div class="teacher-name">${teacher ? teacher.name : 'Unknown'}</div>
+            <div class="teacher-email">${reg.teacherEmail}</div>
+          </div>
+        </div>
+        <div class="attendance-notes">
+          <input 
+            type="text" 
+            placeholder="Add note (e.g., Absent, Late, etc.)"
+            class="attendance-note-input"
+            data-registration-id="${reg.id}"
+            value="${attendanceRecord && attendanceRecord.notes ? attendanceRecord.notes : ''}"
+          />
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (registrations.length === 0) {
+    attendanceTableContainer.innerHTML = '<p style="color: #475569;">No registered teachers for this workshop.</p>';
+  } else {
+    attendanceTableContainer.innerHTML = attendanceRows;
+  }
+
+  attendanceList.style.display = 'block';
+  noWorkshopMessage.style.display = 'none';
+}
+
+function handleSaveAttendance() {
+  const workshopId = workshopSelect.value;
+  if (!workshopId) {
+    alert('Please select a workshop first.');
+    return;
+  }
+
+  const checkboxes = document.querySelectorAll('.attendance-checkbox');
+  const attendanceRecords = getAttendanceRecords();
+  const registrations = getRegistrations();
+
+  checkboxes.forEach((checkbox) => {
+    const registrationId = checkbox.getAttribute('data-registration-id');
+    const noteInput = document.querySelector(`.attendance-note-input[data-registration-id="${registrationId}"]`);
+    const notes = noteInput ? noteInput.value : '';
+    
+    const existingRecord = attendanceRecords.find((rec) => rec.registrationId === registrationId);
+    const now = new Date().toISOString();
+
+    if (checkbox.checked) {
+      if (existingRecord) {
+        existingRecord.checkInTime = existingRecord.checkInTime || now;
+        existingRecord.notes = notes;
+      } else {
+        attendanceRecords.push({
+          id: `attendance-${Date.now()}-${Math.random()}`,
+          registrationId,
+          checkInTime: now,
+          checkOutTime: null,
+          status: 'Present',
+          notes
+        });
+      }
+    } else {
+      if (existingRecord) {
+        const index = attendanceRecords.indexOf(existingRecord);
+        attendanceRecords.splice(index, 1);
+      }
+    }
+  });
+
+  saveAttendanceRecords(attendanceRecords);
+  
+  // Show confirmation
+  const totalChecked = Array.from(checkboxes).filter((cb) => cb.checked).length;
+  attendanceConfirmationCard.classList.remove('hidden');
+  attendanceConfirmationDetails.innerHTML = `
+    <p><strong>Attendance Saved Successfully</strong></p>
+    <p>Checked in: ${totalChecked} teacher(s)</p>
+  `;
+
+  // Reset after confirmation
+  setTimeout(() => {
+    attendanceConfirmationCard.classList.add('hidden');
+    handleWorkshopSelect({ target: { value: workshopId } });
+  }, 2000);
+}
+
 window.handleRegister = handleRegister;
 window.handleWaitlist = handleWaitlist;
 window.handleUnregister = handleUnregister;
@@ -406,6 +729,14 @@ showLoginBtn.addEventListener('click', () => showTab('login'));
 registerForm.addEventListener('submit', handleRegisterSubmit);
 loginForm.addEventListener('submit', handleLoginSubmit);
 logoutButton.addEventListener('click', handleLogout);
+
+// Admin event listeners
+showTeacherRoleBtn.addEventListener('click', () => showRoleTab('teacher'));
+showAdminRoleBtn.addEventListener('click', () => showRoleTab('admin'));
+adminLoginForm.addEventListener('submit', handleAdminLoginSubmit);
+adminLogoutButton.addEventListener('click', handleAdminLogout);
+workshopSelect.addEventListener('change', handleWorkshopSelect);
+saveAttendanceButton.addEventListener('click', handleSaveAttendance);
 
 loadWorkshops();
 updateDisplay();
