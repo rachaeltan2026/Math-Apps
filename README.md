@@ -18,6 +18,20 @@ This repository now includes a browser-based prototype for Workflow 1 of the Tea
 3. After registration, browse workshops and click "Register" to sign up.
 4. View your registered workshops and confirmations.
 
+## Supabase (optional) - quick setup
+1. Create a Supabase project and get your `SUPABASE_URL` and `SUPABASE_ANON_KEY` (public anon key).
+2. Copy `config.example.js` to `config.js` and replace the placeholder values with your real values.
+3. Locally, the app will load `config.js` at runtime and initialize the Supabase client.
+
+Vercel notes: to keep keys out of the repo, set `SUPABASE_URL` and `SUPABASE_ANON_KEY` as Environment Variables
+in your Vercel project, and add a build command that writes `config.js` before deployment. Example build command:
+
+```bash
+bash -lc 'echo "window.SUPABASE_URL=\"$SUPABASE_URL\";window.SUPABASE_ANON_KEY=\"$SUPABASE_ANON_KEY\";" > ./config.js' && true
+```
+
+This writes a `config.js` file at build time containing your public keys. Keep private keys secret and do not commit `config.js`.
+
 ## Notes
 - Data is stored locally in the browser using `localStorage`.
 - This is a client-side prototype without a backend service.

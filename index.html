@@ -70,6 +70,13 @@
     </section>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script>
+    if (!window.SUPABASE_URL) {
+      console.warn('No Supabase config found. Create `config.js` from `config.example.js` and set your keys.');
+    }
+  </script>
   <script src="app.js"></script>
 </body>
 </html>

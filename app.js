@@ -1,3 +1,25 @@
+// Supabase initialization (optional). Create `config.js` from `config.example.js` with your project values,
+// or generate `config.js` at build time in Vercel using environment variables.
+let supabaseClient = null;
+if (window.SUPABASE_URL && window.SUPABASE_ANON_KEY && window.supabase && typeof window.supabase.createClient === 'function') {
+  try {
+    supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    console.log('Supabase client initialized');
+    (async () => {
+      try {
+        const { data, error } = await supabaseClient.from('workshops').select('*').limit(1);
+        console.log('Supabase test query result:', { data, error });
+      } catch (err) {
+        console.error('Supabase test query failed:', err);
+      }
+    })();
+  } catch (err) {
+    console.error('Failed to initialize Supabase client:', err);
+  }
+} else {
+  console.warn('Supabase not configured. To enable, create `config.js` from `config.example.js` or set up a build step to generate it on Vercel.');
+}
+
 const storage = {
   get(key) {
     const raw = localStorage.getItem(key);
