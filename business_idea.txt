@@ -1,0 +1,225 @@
+# TEACHER ATTENDANCE & WORKSHOP REGISTRATION APP
+
+## PROJECT OVERVIEW
+A web-based application for managing teacher attendance and workshop registrations. The system enables teachers to register using QR codes, select workshops to attend, and provides administrators with comprehensive visibility into registrations and attendance status.
+
+## USER ROLES
+
+### 1. ADMIN
+- Full system access
+- Can create/edit/delete workshops
+- Can view all teachers and their registration status
+- Can view attendance records
+- Can download reports (CSV/PDF)
+- Can manage workshop capacity
+- Can send notifications to teachers
+- Can view dashboard with key metrics
+
+### 2. TEACHER
+- Access the system via email invitation link or event QR code
+- Browse available workshops
+- Register for up to 2 workshops
+- View their registered workshops
+- Receive confirmation of registration
+- Track attendance status
+
+### 3. WORKSHOP ORGANIZER
+- Manage workshop details and schedules
+- Oversee registrations and waitlists for assigned workshops
+- View attendance and feedback for assigned workshops
+
+### 4. SYSTEM ADMIN
+- System configuration and management
+- User role management
+- Backup and data management
+
+## CORE FEATURES
+
+### TEACHER REGISTRATION
+- Email invitation link or QR code-based registration (quick and easy)
+  - Admin sends teachers a secure invitation link via email
+  - Teacher clicks link or scans QR code → lands on registration form
+  - Registration form collects: name, MOE email, contact number, school/institution, grade level taught
+  - One teacher account per MOE email address
+  - No mandatory email verification step required for workshop signup
+- Display confirmation message after successful registration
+- Automatic login after registration
+
+### WORKSHOP MANAGEMENT
+- Each workshop has:
+  - Unique ID and name
+  - Description (detailed info about workshop content)
+  - Date and time
+  - Location/room number
+  - Instructor name
+  - Capacity: 20 participants max
+  - Current enrollment count
+  - Workshop status (Open, Full, Upcoming, Completed, Cancelled)
+  - Prerequisites (if any)
+  
+- Admin can:
+  - Create new workshops
+  - Edit workshop details
+  - Delete workshops (only if no registrations)
+  - Set or adjust capacity limits even after registrations start
+  - Open/close registration for workshop
+  - View registered participants list
+
+### WORKSHOP REGISTRATION (Teacher Flow)
+- Teachers see list of available workshops with:
+  - Workshop name, date, time, location
+  - Instructor
+  - Available spots remaining
+  - "Register" button (if space available) or "Full" badge or "Join Waitlist" button
+- **Registration Limit**: Teachers can register for maximum 2 workshops only
+  - Display current registration count (e.g., "Registered for 1/2 workshops")
+  - Disable registration once limit reached
+- Prevent double registration (teacher cannot register for same workshop twice)
+- **Waitlist Feature**: If workshop is full:
+  - Allow teacher to join waitlist for workshop
+  - Automatically register from waitlist if spot becomes available
+  - Notify teacher via email when registered from waitlist
+- Show registration confirmation with:
+  - Workshop details
+  - Registration date/time
+  - Confirmation number
+  - Registration status (confirmed, waitlisted)
+- Allow teacher to unregister from workshop (if within time window)
+- Email confirmation sent for each registration/cancellation/waitlist action
+
+### ATTENDANCE TRACKING
+- Admin can mark attendance on the day of workshop:
+  - List of registered teachers
+  - Check-in/mark present checkbox
+  - Time in and time out (optional)
+  - Notes field (if teacher absent, reason)
+- **Attendance Time Window**:
+  - Admin specifies attendance opening time and closing time for each workshop
+  - System displays countdown to opening and closing times
+  - Attendance can only be marked within the specified time window
+  - Late check-ins can be marked with timestamp
+- Option to generate attendance QR code on day of workshop for quick check-in
+- Teachers can view their attendance history
+
+### DASHBOARD & REPORTING
+
+**Admin Dashboard:**
+- Total teachers registered
+- Total workshop registrations
+- Attendance rate statistics
+- Average workshop rating
+- Upcoming workshops
+- Recent registrations
+
+**Reports:**
+- Teacher attendance report (by teacher, by workshop, by date range)
+- Workshop enrollment report
+- Feedback summary report with statistics and graphs
+- Export to CSV/PDF
+
+**Teacher Dashboard:**
+- My registered workshops (with status: confirmed/waitlisted)
+- My attendance record
+- Upcoming workshops I'm registered for
+- Feedback forms to complete (pending feedback)
+- Submitted feedback history
+
+## TECHNICAL SPECIFICATIONS
+
+### Tech Stack
+- Frontend: React / Next.js deployed on Vercel using school-managed deployment
+- Backend: Supabase (Auth, PostgreSQL, API, storage) under school-managed Supabase accounts
+- Database: Supabase PostgreSQL
+- QR Code: JavaScript QR code library in the browser
+- Email: Supabase email/send integrations or SMTP via Supabase functions
+
+### Data Models
+- Users (id, name, email, phone, school, grade_level, role, created_at)
+- Workshops (id, name, description, date, time, location, instructor, capacity, status, attendance_open_time, attendance_close_time)
+- Registrations (id, user_id, workshop_id, registration_date, status: registered/cancelled/attended/waitlisted)
+- Attendance (id, registration_id, check_in_time, check_out_time, status: present/absent/late)
+- FeedbackForms (id, workshop_id, form_title, questions: array of max 5 questions, created_by_admin, created_at, updated_at)
+- FeedbackResponses (id, feedback_form_id, user_id, responses: array of answers, submitted_at)
+
+### Key Validations
+- MOE email must be unique and tied to one teacher account
+- Contact number is required for registration
+- Workshop capacity cannot exceed 20
+- Cannot register after workshop start time
+- Cannot register for same workshop twice
+- Admin and role-based actions require authentication
+- Role-based admin scopes may be used for different management permissions
+
+### Security Requirements
+- HTTPS/SSL encryption
+- Password hashing (bcrypt)
+- Session management with timeouts
+- CSRF protection
+- Input validation and sanitization
+- Role-based access control (RBAC)
+
+## USER WORKFLOWS
+
+### Workflow 1: Teacher Registration & Workshop Signup (Done)
+1. Admin sends an email invitation link to the teacher
+2. Teacher clicks the invitation link or scans a QR code
+3. Teacher fills registration form
+4. Teacher logs in and browses workshops
+5. Teacher selects workshop(s) to register
+6. Confirmation email sent
+7. Teacher can view registered workshops
+
+### Workflow 2: Admin Marking Attendance
+1. Admin logs in with credentials
+2. Admin selects workshop date
+3. Admin sees list of registered teachers
+4. Admin checks off attendees (or uses QR check-in)
+5. Admin can add notes for absences
+6. Admin saves attendance record
+
+### Workflow 3: Reporting & Analytics
+1. Admin accesses Reports section
+2. Admin selects report type and date range
+3. System generates report
+4. Admin can view, print, or export to CSV/PDF
+
+## CONSTRAINTS & LIMITS
+- Max 20 teachers per workshop
+- Max workshops per teacher: unlimited registrations (but can attend only one per time slot)
+- Registration deadline: 24 hours before workshop
+- Teacher cannot register after workshop has started
+
+### FEEDBACK FORMS
+- **For Teachers**: After attending a workshop, teachers receive link to feedback form
+  - Form contains up to 5 questions configured by admin
+  - Question types: multiple choice, rating scale (1-5), short text, long text
+  - Teachers can submit feedback online after workshop
+  - Submission confirmation sent to teacher
+  
+- **For Admin**:
+  - Create feedback form for each workshop
+  - Add up to 5 questions per form
+  - View all submitted feedback responses
+  - Export feedback to CSV/PDF
+  - View feedback statistics and graphs
+  - Edit questions only before responses are submitted
+  - Delete form (archive old forms)
+
+## CONSTRAINTS & LIMITS (Updated)
+- Max 20 teachers per workshop
+- **Max 2 workshops per teacher** (can register for at most 2 concurrent workshops)
+- Max 5 questions per feedback form
+- Registration deadline: 24 hours before workshop
+- Teacher cannot register after workshop has started
+- Attendance can only be marked during the specified attendance time window
+- Deployment should use school-managed Vercel and Supabase accounts
+
+## FUTURE ENHANCEMENTS (Optional)
+- SMS notifications for workshop reminders
+- Calendar integration (Google Calendar export)
+- Recurring workshops
+- Certificate generation upon attendance
+- Integration with school management systems
+- Mobile-responsive design
+- Real-time analytics dashboard
+- Advanced reporting with feedback analysis 
